@@ -1,31 +1,103 @@
 const usersService = require('./users-service');
 const { errorResponder, errorTypes } = require('../../../core/errors');
-const { hashPassword } = require('../../../utils/password');
+const { hashPassword, passwordMatched } = require('../../../utils/password');
+// const jwt = require('jsonwebtoken');
+require('dotenv').config(); // Pastikan kamu punya `.env` dengan JWT_SECRET
 
+async function registerUser(request, response, next) {
+  try {
+    const { email, password, full_name: fullName, confirm_password: confirmPassword } = request.body;
+
+    if (!email || !password || !fullName || !confirmPassword) {
+      throw errorResponder(errorTypes.VALIDATION_ERROR, 'All fields are required');
+    }
+
+    if (password !== confirmPassword) {
+      throw errorResponder(errorTypes.VALIDATION_ERROR, 'Passwords do not match');
+    }
+
+    if (await usersService.emailExists(email)) {
+      throw errorResponder(errorTypes.EMAIL_ALREADY_TAKEN, 'Email already registered');
+    }
+
+    const hashedPassword = await hashPassword(password);
+    const success = await usersService.createUser(email, hashedPassword, fullName);
+
+    if (!success) {
+      throw errorResponder(errorTypes.UNPROCESSABLE_ENTITY, 'Failed to register user');
+    }
+
+    return response.status(201).json({ message: 'User registered successfully' });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+// LOGIN USER
+async function loginUser(request, response, next) {
+  try {
+    const { email, password } = request.body;
+
+    if (!email || !password) {
+      throw errorResponder(errorTypes.VALIDATION_ERROR, 'Email and password are required');
+    }
+
+    const user = await usersService.getUserByEmail(email);
+    if (!user) {
+      throw errorResponder(errorTypes.UNAUTHORIZED, 'Invalid credentials');
+    }
+
+    const isMatch = await passwordMatched(password, user.password);
+    if (!isMatch) {
+      throw errorResponder(errorTypes.UNAUTHORIZED, 'Invalid credentials');
+    }
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    return response.status(200).json({ message: 'Login successful', token });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+// async function loginUser(request, response, next) {
+//   try {
+//     const { email, password } = request.body;
+
+//     // Pastikan email dan password ada dalam request
+//     if (!email || !password) {
+//       throw errorResponder(errorTypes.VALIDATION_ERROR, 'Email and password are required');
+//     }
+
+//     // Cari user berdasarkan email
+//     const user = await usersService.getUserByEmail(email);
+//     if (!user) {
+//       throw errorResponder(errorTypes.UNAUTHORIZED, 'User not found');
+//     }
+
+//     // Cek apakah password cocok
+//     const isMatch = await passwordMatched(password, user.password);
+//     if (!isMatch) {
+//       return response.status(403).json({ error: 'INVALID_PASSWORD' });
+//     }
+
+//     // Jika cocok, berikan response success
+//     return response.status(200).json({ message: 'Login successful' });
+
+//   } catch (error) {
+//     return next(error);
+//   }
+// }
+
+// GET USERS
 async function getUsers(request, response, next) {
   try {
     const users = await usersService.getUsers();
-
     return response.status(200).json(users);
   } catch (error) {
     return next(error);
   }
 }
-
-async function getUser(request, response, next) {
-  try {
-    const user = await usersService.getUser(request.params.id);
-
-    if (!user) {
-      throw errorResponder(errorTypes.UNPROCESSABLE_ENTITY, 'User not found');
-    }
-
-    return response.status(200).json(user);
-  } catch (error) {
-    return next(error);
-  }
-}
-
 async function createUser(request, response, next) {
   try {
     const {
@@ -191,7 +263,24 @@ async function deleteUser(request, response, next) {
   }
 }
 
+async function getUser(request, response, next) {
+  try {
+    const user = await usersService.getUser(request.params.id);
+
+    if (!user) {
+      throw errorResponder(errorTypes.UNPROCESSABLE_ENTITY, 'User not found');
+    }
+
+    return response.status(200).json(user);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+
 module.exports = {
+   registerUser,// Tambahkan ini
+  loginUser,    // Tambahkan ini
   getUsers,
   getUser,
   createUser,

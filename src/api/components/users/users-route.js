@@ -7,6 +7,8 @@ const route = express.Router();
 module.exports = (app) => {
   app.use('/users', route);
 
+  route.post('/authentication/register', usersController.registerUser);
+  route.post('/authentication/login', usersController.loginUser);
   // Get list of users
   route.get('/', usersController.getUsers);
 

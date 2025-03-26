@@ -1,4 +1,5 @@
 const { Users } = require('../../../models');
+const { registerUser } = require('./users-controller');
 
 async function getUsers() {
   return Users.find({});
@@ -27,6 +28,10 @@ async function changePassword(id, password) {
 async function deleteUser(id) {
   return Users.deleteOne({ _id: id });
 }
+async function emailExists(email) {
+  const user = await getUserByEmail(email);
+  return !!user;
+}
 
 module.exports = {
   getUsers,
@@ -36,4 +41,5 @@ module.exports = {
   updateUser,
   changePassword,
   deleteUser,
+  emailExists,
 };
