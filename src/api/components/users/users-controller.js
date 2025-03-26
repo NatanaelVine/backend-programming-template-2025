@@ -279,8 +279,8 @@ async function getUser(request, response, next) {
 
 
 module.exports = {
-   registerUser,// Tambahkan ini
-  loginUser,    // Tambahkan ini
+   registerUser,
+  loginUser,    
   getUsers,
   getUser,
   createUser,
